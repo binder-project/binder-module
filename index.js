@@ -17,14 +17,29 @@ var getLogger = require('binder-logging').getLogger
  */
 var BinderModule = function (options) {
   options = options || {}
-  this.options = options
-  this.name = options.name || 'binder-module'
+  this.options = this._processOptions(options)
+  this.name = options.name || settings.name || 'binder-module'
 
-  this.apiKey = options.apiKey || process.env.BINDER_API_KEY || hat()
-  this.port = options.port || process.env.BINDER_DEPLOY_PORT || settings.port
+  this.apiKey = options.apiKey || settings.apiKey || hat()
+  this.port = options.port || settings.port
 
-  this.backgroundTasks = []
-  this.logger = getLogger(settings.name)
+  this.logger = getLogger(this.name)
+}
+
+BinderModule.prototype._processOptions = function (options) {
+  if (this.name in options) {
+    var limited = options[this.name]
+    limited.logging = options.logging
+    limited.db = options.db
+    limited.name = this.name
+    _.forEach(_.keys(options, function (key) {
+      if (!(typeof options[key] === 'object')) {
+        limited[key] = options[key]
+      }
+    }))
+    return limited
+  }
+  return options
 }
 
 /**
