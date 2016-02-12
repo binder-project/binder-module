@@ -38,7 +38,9 @@ var processOptions = function (name, options) {
 var BinderModule = function (name, settings, options) {
   this.name = name
   this.opts = _.merge(settings, processOptions(this.name, options))
-  this.apiKey = this.opts.apiKey || hat()
+  console.log('this.opts.apiKey: ' + this.opts.apiKey)
+  console.log('options: ' + JSON.stringify(options))
+  this.apiKey = this.opts.apiKey || process.env['BINDER_API_KEY'] || hat()
   this.port = this.opts.port
 
   this.logger = getLogger(this.name)
@@ -68,13 +70,19 @@ BinderModule.prototype._createServer = function () {
 
   var app = express()
   app.use(bodyParser.json())
+  var stream = {
+    write: function (message, encoding) {
+      self.logger.info(message)
+    }
+  }
+  app.use(require('morgan')({ stream: stream }))
 
   var authHandler = function (req, res, next) {
     var credentials = req.headers['authorization']
     if (credentials && credentials === self.apiKey) {
       next()
     } else {
-      res.status(403).end()
+      res.sendStatus(403)
     }
   }
   if (this.protocol) {
@@ -87,19 +95,25 @@ BinderModule.prototype._createServer = function () {
         return
       }
       var basePath = endpoint.path
-      var params = _.map(endpoint.request.queryParams, function (param) {
-        return _.camelCase(param)
+      var params = _.mapValues(endpoint.params, function (val, key) {
+        return ':' + _.camelCase(key)
       })
-      var fullPath = basePath + params.join('/')
+      var fullPath = basePath.format(params)
       var method = _.lowerCase(endpoint.request.method)
       app[method](fullPath, function (req, res, next) {
         var api = {}
         var params = (method === 'get') ? req.params : req.body
+        params = _.mapKeys(params, function (val, key) {
+          return _.kebabCase(key)
+        })
         // ensure that all required parameters are contained in the request
         _.forEach(endpoint.params, function (type, name) {
           if (!(name in params)) {
-            if (typeof type === 'object' && type.required === true) {
-              res.sendStatus(422)
+            if (typeof type === 'object' && (type.required !== false)) {
+              var error = binderProtocol.global.response.error.malformedRequest
+              var msg = error.msg.format({ name: name })
+              self.logger.info(msg)
+              res.status(error.status).send(msg)
             }
           }
         })
@@ -111,17 +125,58 @@ BinderModule.prototype._createServer = function () {
             var msg = obj ? info.msg.format(obj) : info.msg
             self.logger.error(msg)
             res.status(info.status).send({
+              type: name,
               // do not send implementation details in the error to the client
               error: info.msg
             }).end()
           }
         })
         api._success = function (obj) {
-          self.logger.info(endpoint.success.msg)
-          if (!obj) {
-            res.sendStatus(endpoint.success.status)
+          var bodyParams = endpoint.response.body
+          // ensure that all the required response parameters are included
+          // TODO check fully-typed schema
+          var paramsIsArray = _.isArray(bodyParams)
+          var objIsArray = _.isArray(obj)
+          // make sure that the types match
+          if ((!obj !== !bodyParams) || (paramsIsArray !== objIsArray)) {
+            var error = binderProtocol.global.response.error.badResponse
+            var str = 'type mismatch between expected and received values'
+            var msg = error.msg.format({ name: str })
+            self.logger.info(msg)
+            res.status(error.status).send(msg)
           } else {
-            res.status(endpoint.success.status).json(obj)
+            var missingKeys = {}
+            var keysObj = paramsIsArray ? bodyParams[0] : bodyParams
+            var checkKeys = function (o) {
+              var valid = _.map(keysObj, function (value, key) {
+                if (!(key in o)) {
+                  missingKeys[key] = 1
+                  return false
+                }
+                return true
+              })
+              return _.every(valid, Boolean)
+            }
+            var valid
+            if (paramsIsArray) {
+              valid = _.every(_.map(obj, checkKeys))
+            } else {
+              valid = checkKeys(obj)
+            }
+            if (!valid) {
+              error = binderProtocol.global.response.error.badResponse
+              msg = error.msg.format({ name: _.keys(missingKeys) })
+              self.logger.info(msg)
+              res.status(error.status).send(msg)
+            } else {
+              var success = endpoint.response.success
+              self.logger.info(success.msg.format(obj))
+              if (!obj) {
+                res.sendStatus(success.status)
+              } else {
+                res.status(success.status).json(obj)
+              }
+            }
           }
         }
         handler(api)
@@ -129,7 +184,7 @@ BinderModule.prototype._createServer = function () {
     })
   }
   this.logger.info('creating any other endpoints not associated with the Binder API')
-  this._makeRoutes(app, authHandler)
+  this._makeOtherRoutes(app, authHandler)
   return http.createServer(app)
 }
 
@@ -152,7 +207,8 @@ BinderModule.prototype.start = function () {
         process.exit(2)
       }
       self.server = self._createServer()
-      self.logger.info('Starting {0} on port {1} ...'.format(self.name, self.port))
+      self.logger.info('Starting {0} on port {1}...'.format(self.name, self.port))
+      console.log(' - Using API key: {0}'.format(self.apiKey))
       self.emit('start')
       self.server.listen(self.port)
     })
