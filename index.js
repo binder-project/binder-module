@@ -96,13 +96,17 @@ BinderModule.prototype._createServer = function () {
       }
       var basePath = endpoint.path
       var params = _.mapValues(endpoint.params, function (val, key) {
-        return ':' + _.camelCase(key)
+        var id = ':' + _.camelCase(key)
+        if (val.required === false) {
+          id += '?'
+        }
+        return id
       })
       var fullPath = basePath.format(params)
       var method = _.lowerCase(endpoint.request.method)
-      app[method](fullPath, function (req, res, next) {
+      var apiFunc = function (req, res, next) {
         var api = {}
-        var params = (method === 'get') ? req.params : req.body
+        var params = (endpoint.request.body) ? req.body : req.params
         params = _.mapKeys(params, function (val, key) {
           return _.kebabCase(key)
         })
@@ -133,54 +137,61 @@ BinderModule.prototype._createServer = function () {
         })
         api._success = function (obj) {
           var bodyParams = endpoint.response.body
-          // ensure that all the required response parameters are included
-          // TODO check fully-typed schema
-          var paramsIsArray = _.isArray(bodyParams)
-          var objIsArray = _.isArray(obj)
-          // make sure that the types match
-          if ((!obj !== !bodyParams) || (paramsIsArray !== objIsArray)) {
-            var error = binderProtocol.global.response.error.badResponse
-            var str = 'type mismatch between expected and received values'
-            var msg = error.msg.format({ name: str })
-            self.logger.info(msg)
-            res.status(error.status).send(msg)
-          } else {
-            var missingKeys = {}
-            var keysObj = paramsIsArray ? bodyParams[0] : bodyParams
-            var checkKeys = function (o) {
-              var valid = _.map(keysObj, function (value, key) {
-                if (!(key in o)) {
-                  missingKeys[key] = 1
-                  return false
-                }
-                return true
-              })
-              return _.every(valid, Boolean)
-            }
-            var valid
-            if (paramsIsArray) {
-              valid = _.every(_.map(obj, checkKeys))
-            } else {
-              valid = checkKeys(obj)
-            }
-            if (!valid) {
-              error = binderProtocol.global.response.error.badResponse
-              msg = error.msg.format({ name: _.keys(missingKeys) })
+          var valid = true
+          if (bodyParams) {
+            // ensure that all the required response parameters are included
+            // TODO check fully-typed schema
+            var paramsIsArray = _.isArray(bodyParams)
+            var objIsArray = _.isArray(obj)
+            // make sure that the types match
+            if ((!obj !== !bodyParams) || (paramsIsArray !== objIsArray)) {
+              var error = binderProtocol.global.response.error.badResponse
+              var str = 'type mismatch between expected and received values'
+              var msg = error.msg.format({ name: str })
               self.logger.info(msg)
               res.status(error.status).send(msg)
             } else {
-              var success = endpoint.response.success
-              self.logger.info(success.msg.format(obj))
-              if (!obj) {
-                res.sendStatus(success.status)
-              } else {
-                res.status(success.status).json(obj)
+              var missingKeys = {}
+              var keysObj = paramsIsArray ? bodyParams[0] : bodyParams
+              var checkKeys = function (o) {
+                var valid = _.map(keysObj, function (value, key) {
+                  if (!(key in o)) {
+                    missingKeys[key] = 1
+                    return false
+                  }
+                  return true
+                })
+                return _.every(valid, Boolean)
               }
+              if (paramsIsArray) {
+                valid = _.every(_.map(obj, checkKeys))
+              } else {
+                valid = checkKeys(obj)
+              }
+            }
+          }
+          if (!valid) {
+            error = binderProtocol.global.response.error.badResponse
+            msg = error.msg.format({ name: _.keys(missingKeys) })
+            self.logger.info(msg)
+            res.status(error.status).send(msg)
+          } else {
+            var success = endpoint.response.success
+            self.logger.info(success.msg.format(obj))
+            if (!obj) {
+              res.sendStatus(success.status)
+            } else {
+              res.status(success.status).json(obj)
             }
           }
         }
         handler(api)
-      })
+      }
+      var noop = function (req, res, next) {
+        next(null, req, res)
+      }
+      var maybeAuth = (endpoint.request.authorized) ? authHandler : noop
+      app[method](fullPath, maybeAuth, apiFunc)
     })
   }
   this.logger.info('creating any other endpoints not associated with the Binder API')
