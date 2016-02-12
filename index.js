@@ -35,17 +35,17 @@ var processOptions = function (name, options) {
  * An HTTP server that implements API of a Binder component
  * @constructor
  */
-var BinderModule = function (name, settings, options) {
+var BinderModule = function (name, api, settings, options) {
   this.name = name
-  this.opts = _.merge(settings, processOptions(this.name, options))
-  console.log('this.opts.apiKey: ' + this.opts.apiKey)
-  console.log('options: ' + JSON.stringify(options))
+  var processed = _.merge(settings, processOptions(this.name, options))
+  this.opts = _.merge(settings, processed)
   this.apiKey = this.opts.apiKey || process.env['BINDER_API_KEY'] || hat()
+  this.opts.apiKey = this.apiKey
   this.port = this.opts.port
 
   this.logger = getLogger(this.name)
   if (name) {
-    this.protocol = binderProtocol[name]
+    this.protocol = binderProtocol[api]
   }
 }
 inherits(BinderModule, EventEmitter)
