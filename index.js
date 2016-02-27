@@ -1,4 +1,4 @@
-var EventEmitter = require('events')
+var EventEmitter = require('events').EventEmitter
 var http = require('http')
 
 var _ = require('lodash')
@@ -6,6 +6,8 @@ var inherits = require('inherits')
 var hat = require('hat')
 var express = require('express')
 var bodyParser = require('body-parser')
+var path = require('path')
+var jsonfile = require('jsonfile')
 var format = require('string-format')
 format.extend(String.prototype)
 
@@ -39,10 +41,11 @@ var BinderModule = function (name, api, settings, options) {
   this.name = name
   var processed = _.merge(settings, processOptions(this.name, options))
   this.opts = _.merge(settings, processed)
+  // write the file synchronously to fail quickly
+  jsonfile.writeFileSync(path.join(__dirname, '.opts'), this.opts, { spaces: 2 })
   this.apiKey = this.opts.apiKey || process.env['BINDER_API_KEY'] || hat()
   this.opts.apiKey = this.apiKey
   this.port = this.opts.port
-
   this.logger = getLogger(this.name)
   if (name) {
     this.protocol = binderProtocol[api]
