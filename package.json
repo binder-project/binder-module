@@ -1,6 +1,6 @@
 {
   "name": "binder-module",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Base class for a Binder module",
   "main": "index.js",
   "scripts": {
