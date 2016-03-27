@@ -2,7 +2,7 @@
 Base class for a PM2-managed, Express-based Binder module
 
 An instance of `BinderModule` implements a subset of the API defined in
-(`binder-protocol`)[https:/github.com/binder-project/binder-protocol], with HTTP handlers defined
+[`binder-protocol`](https:/github.com/binder-project/binder-protocol), with HTTP handlers defined
 for each implemented endpoint.
 
 A `BinderModule` is initialized with a list of components it will implement (currently chosen from
@@ -30,8 +30,8 @@ inherits(YourBinderModule, BinderModule)
 
 ### usage
 
-The correct behavior for every Binder API endpoint is described in (the Binder protocol
-file)[https://github.com/binder-project/binder-protocol/blob/master/index.js]. Handlers are
+The correct behavior for every Binder API endpoint is described in [the Binder protocol
+file](https://github.com/binder-project/binder-protocol/blob/master/index.js). Handlers are
 registered in `_makeBinderAPI` as a list of mappings from handler name to instance method:
 ```
 BinderBuild.prototype._makeBinderAPI = function () {
@@ -82,8 +82,8 @@ being invoked, and error handling for bad parameters are all handled in a single
 ### examples
 
 Currently, the
-(`binder-build`)[https://github.com/binder-project/binder-build/blob/master/lib/server.js] and
-(`binder-deploy-kubernetes`)[https://github.com/binder-project/binder-deploy-kubernetes/blob/master/lib/server.js]
+[`binder-build`](https://github.com/binder-project/binder-build/blob/master/lib/server.js) and
+[`binder-deploy-kubernetes`](https://github.com/binder-project/binder-deploy-kubernetes/blob/master/lib/server.js)
 modules implement instances of `BinderModule` in their `lib/server.js`  files.
 
 
