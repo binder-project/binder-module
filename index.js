@@ -23,11 +23,11 @@ var processOptions = function (name, options) {
     limited.logging = options.logging
     limited.db = options.db
     limited.name = name
-    _.forEach(_.keys(options), function (key) {
+    for (var key in options) {
       if (!(typeof options[key] === 'object') && key !== name) {
         limited[key] = options[key]
       }
-    })
+    }
     return limited
   }
   return options
@@ -42,13 +42,17 @@ var BinderModule = function (name, api, settings, options) {
   var processed = _.merge(settings, processOptions(this.name, options))
   this.opts = _.merge(settings, processed)
   // write the file synchronously to fail quickly
-  jsonfile.writeFileSync(path.join(__dirname, '.opts'), this.opts, { spaces: 2 })
+  jsonfile.writeFileSync(path.join(process.env.HOME, '.' + name + '.conf'), this.opts, { spaces: 2 })
   this.apiKey = this.opts.apiKey || process.env['BINDER_API_KEY'] || hat()
   this.opts.apiKey = this.apiKey
   this.port = this.opts.port
   this.logger = getLogger(this.name)
-  if (name) {
-    this.protocol = binderProtocol[api]
+  if (api) {
+    if (_.isArray(api)) {
+      this.protocols  = _.map(api, function (a) { return binderProtocol[a] })
+    } else {
+      this.protocols = [binderProtocol[api]]
+    }
   }
 }
 inherits(BinderModule, EventEmitter)
@@ -88,11 +92,13 @@ BinderModule.prototype._createServer = function () {
       res.sendStatus(403)
     }
   }
-  if (this.protocol) {
-    this.logger.info('creating Binder API endpoints for the {0} API'.format(this.name))
-    var apiHandlers = this._makeBinderAPI()
+
+  function _makeAPI(api) {
+
+    self.logger.info('creating Binder API endpoints for the {0} API'.format(api))
+    var apiHandlers = self._makeBinderAPI()
     _.forEach(apiHandlers, function (handler, name) {
-      var endpoint = self.protocol[name]
+      var endpoint = api[name]
       if (!endpoint) {
         self.logger.error('handler trying to handle nonexistent endpoint: {0}'.format(name))
         return
@@ -197,6 +203,13 @@ BinderModule.prototype._createServer = function () {
       app[method](fullPath, maybeAuth, apiFunc)
     })
   }
+
+  if (this.protocols) {
+    _.forEach(this.protocols, function (p) {
+      _makeAPI(p)
+    })
+  }
+
   this.logger.info('creating any other endpoints not associated with the Binder API')
   this._makeOtherRoutes(app, authHandler)
   return http.createServer(app)
