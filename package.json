@@ -21,6 +21,9 @@
   },
   "homepage": "https://github.com/binder-project/binder-module",
   "dependencies": {
+    "binder-db": "^1.0.0",
+    "binder-logging": "^1.0.0",
+    "binder-protocol": "^1.0.0",
     "body-parser": "^1.14.2",
     "commander": "^2.9.0",
     "express": "^4.13.3",
