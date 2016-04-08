@@ -7,42 +7,19 @@ var hat = require('hat')
 var express = require('express')
 var bodyParser = require('body-parser')
 var path = require('path')
-var jsonfile = require('jsonfile')
 var format = require('string-format')
 format.extend(String.prototype)
 
 var binderProtocol = require('binder-protocol')
 var getLogger = require('binder-logging').getLogger
 
-var processOptions = function (name, options) {
-  if (!options) {
-    return {}
-  }
-  if (name in options) {
-    var limited = options[name]
-    limited.logging = options.logging
-    limited.db = options.db
-    limited.name = name
-    for (var key in options) {
-      if (!(typeof options[key] === 'object') && key !== name) {
-        limited[key] = options[key]
-      }
-    }
-    return limited
-  }
-  return options
-}
-
 /**
  * An HTTP server that implements API of a Binder component
  * @constructor
  */
-var BinderModule = function (name, api, settings, options) {
+var BinderModule = function (name, api, options) {
   this.name = name
-  var processed = _.merge(settings, processOptions(this.name, options))
-  this.opts = _.merge(settings, processed)
-  // write the file synchronously to fail quickly
-  jsonfile.writeFileSync(path.join(process.env.HOME, '.' + name + '.conf'), this.opts, { spaces: 2 })
+  this.opts = options
   this.apiKey = this.opts.apiKey || process.env['BINDER_API_KEY'] || hat()
   this.opts.apiKey = this.apiKey
   this.port = this.opts.port
