@@ -31,6 +31,11 @@ var BinderModule = function (name, api, options) {
       this.protocols = [binderProtocol[api]]
     }
   }
+
+  var self = this
+  process.on('SIGINT', function () {
+    self.stop()
+  })
 }
 inherits(BinderModule, EventEmitter)
 
