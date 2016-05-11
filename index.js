@@ -238,15 +238,13 @@ BinderModule.prototype._stop = function (cb) {}
 BinderModule.prototype.stop = function () {
   var self = this
   this.logger.info('Stopping {}...'.format(this.name))
-  if (this.server) {
-    this._stop(function (err) {
-      if (err) {
-        self.logger.error(err)
-      }
-      self.server.close()
-      self.emit('stop')
-    })
-  }
+  this._stop(function (err) {
+    if (err) {
+      self.logger.error(err)
+    }
+    if (self.server) self.server.close()
+    self.emit('stop')
+  })
 }
 
 // export a PM2 application description
