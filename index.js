@@ -64,7 +64,6 @@ BinderModule.prototype._createServer = function () {
       self.logger.info(message)
     }
   }
-  app.use(require('morgan')({ stream: stream }))
 
   var authHandler = function (req, res, next) {
     var credentials = req.headers['authorization']
