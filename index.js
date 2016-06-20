@@ -167,7 +167,6 @@ BinderModule.prototype._createServer = function () {
             res.status(error.status).send(msg)
           } else {
             var success = endpoint.response.success
-            self.logger.info(success.msg.format(obj))
             if (!obj) {
               res.sendStatus(success.status)
             } else {
